@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    name: ${{ matrix.os }} / ${{ matrix.cc }} / ${{ matrix.sanitize == 'ON' && 'asan' || 'release' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux exercises the epoll backend, macOS the kqueue backend; select
+        # and poll run on both.
+        include:
+          - {os: ubuntu-24.04, cc: gcc, sanitize: 'OFF'}
+          - {os: ubuntu-24.04, cc: gcc, sanitize: 'ON'}
+          - {os: ubuntu-24.04, cc: clang, sanitize: 'OFF'}
+          - {os: ubuntu-24.04, cc: clang, sanitize: 'ON'}
+          - {os: macos-14, cc: clang, sanitize: 'OFF'}
+          - {os: macos-14, cc: clang, sanitize: 'ON'}
+    env:
+      CC: ${{ matrix.cc }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=${{ matrix.sanitize == 'ON' && 'Debug' || 'Release' }}
+          -DLOGMUX_WERROR=ON
+          -DLOGMUX_SANITIZE=${{ matrix.sanitize }}
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: |
+          if [ -f build/CTestTestfile.cmake ]; then
+            ctest --test-dir build --output-on-failure -j 4
+          fi
