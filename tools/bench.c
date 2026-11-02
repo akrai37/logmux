@@ -172,6 +172,9 @@ int main(int argc, char** argv) {
               lm_backend_name(o.backend), o.idle, o.busy);
       fclose(f);
     }
+    lm_poller_destroy(poller);
+    free(write_ends);
+    free(src);
     return 0;
   }
 
@@ -259,5 +262,18 @@ int main(int argc, char** argv) {
             (unsigned long long)p50, (unsigned long long)p99, sl_timer_resolution_ns());
     fclose(f);
   }
+  for (long i = 0; i < total; ++i) {
+    if (src[i].kind != 1) {  // busy read ends were closed at end-of-file
+      close(src[i].fd);
+    }
+    if (write_ends[i] >= 0) {
+      close(write_ends[i]);
+    }
+  }
+  lm_poller_destroy(poller);
+  free(buf);
+  free(writers);
+  free(write_ends);
+  free(src);
   return 0;
 }

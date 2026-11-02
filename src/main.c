@@ -199,6 +199,17 @@ int main(int argc, char** argv) {
     if (!results[i].exited || results[i].exit_code != 0) {
       status = 1;
     }
+    free(names[i]);
+    free(shell_argv[i]);
+  }
+  // Everything is released, so LeakSanitizer reports real leaks only.
+  free(results);
+  free(shell_argv);
+  free(names);
+  free(specs);
+  free(shell_commands);
+  if (output != NULL) {
+    close(cfg.out_fd);
   }
   return status;
 }

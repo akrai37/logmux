@@ -183,9 +183,16 @@ static void test_many_children(void) {
   enum { N = 100 };
   lm_child_spec specs[N];
   char names[N][16];
+  // One argv for all children, declared at function scope: a compound
+  // literal inside the loop would die at the end of each iteration and
+  // leave every argv dangling (it did, on Linux).
+  static char sh[] = "/bin/sh";
+  static char dash_c[] = "-c";
+  static char script[] = "for i in 1 2 3; do echo line $i; done";
+  char* const argv[] = {sh, dash_c, script, NULL};
   for (int i = 0; i < N; ++i) {
     snprintf(names[i], sizeof names[i], "c%d", i);
-    specs[i] = (lm_child_spec)SH(names[i], "for i in 1 2 3; do echo line $i; done");
+    specs[i] = (lm_child_spec){names[i], argv};
   }
   lm_child_result r[N];
   int rc;

@@ -136,6 +136,7 @@ int main(int argc, char** argv) {
       }
     }
     write_chunked(&opt, STDOUT_FILENO, buf, used);
+    free(buf);
     if (strcmp(m, "hang") == 0) {
       for (;;) {
         pause();
