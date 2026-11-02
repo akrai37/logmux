@@ -44,6 +44,11 @@ add_executable(logmux src/main.c)
 target_link_libraries(logmux PRIVATE logmux_core logmux_warnings)
 target_compile_definitions(logmux PRIVATE LOGMUX_VERSION="${PROJECT_VERSION}")
 
+# Event-loop benchmark.
+add_executable(logmux-bench tools/bench.c)
+target_include_directories(logmux-bench PRIVATE tools)
+target_link_libraries(logmux-bench PRIVATE logmux_core logmux_warnings)
+
 # Test child that writes predictable lines in hostile ways.
 add_executable(logmux-child tools/child.c)
 target_include_directories(logmux-child PRIVATE tools)

@@ -63,11 +63,12 @@ typedef struct {
 
 typedef struct {
   double seconds;
-  uint64_t wakeups;  // waits that returned ready descriptors
-  uint64_t events;   // ready descriptors handled
-  uint64_t reads;    // reads that returned data
-  uint64_t bytes;    // child output collected
-  uint64_t records;  // records written to the log
+  uint64_t wakeups;    // waits that returned ready descriptors
+  uint64_t events;     // ready descriptors handled
+  uint64_t reads;      // reads that returned data
+  uint64_t bytes;      // child output collected
+  uint64_t records;    // records written to the log
+  double cpu_seconds;  // logmux's own user + system time, children excluded
 } lm_stats;
 
 // Runs `n` children to completion. `results` (n entries) and `stats` may be

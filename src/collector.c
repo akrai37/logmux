@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -482,6 +484,13 @@ static int enforce_deadlines(writer* w, const lm_config* cfg, int grace_ms, chil
   return timeout;
 }
 
+static double cpu_seconds(void) {
+  struct rusage ru;
+  getrusage(RUSAGE_SELF, &ru);
+  return (double)ru.ru_utime.tv_sec + (double)ru.ru_utime.tv_usec * 1e-6 +
+         (double)ru.ru_stime.tv_sec + (double)ru.ru_stime.tv_usec * 1e-6;
+}
+
 static void drain_wake_pipe(int fd) {
   char buf[64];
   while (read(fd, buf, sizeof buf) > 0) {
@@ -524,6 +533,7 @@ int lm_run(const lm_config* cfg, const lm_child_spec* specs, size_t n, lm_child_
   saved_signals saved;
   install_signals(&saved);
   w.start_ns = now_ns();
+  const double cpu_start = cpu_seconds();
 
   size_t living = 0;
   size_t open_streams = 0;
@@ -650,6 +660,7 @@ restore:
   restore_signals(&saved);
   g_wake_fd = -1;
   st->seconds = (double)(now_ns() - w.start_ns) * 1e-9;
+  st->cpu_seconds = cpu_seconds() - cpu_start;
   st->records = w.records;
 out:
   for (size_t i = 0; children != NULL && i < n; ++i) {

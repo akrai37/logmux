@@ -72,10 +72,10 @@ static void print_stats(const lm_child_spec* specs, const lm_child_result* r, si
             r[i].fragments[LM_STDOUT] + r[i].fragments[LM_STDERR]);
   }
   fprintf(stderr,
-          "backend %s: %.3f s, %" PRIu64 " wakeups, %" PRIu64 " ready events, %" PRIu64
+          "backend %s: %.3f s (cpu %.3f s), %" PRIu64 " wakeups, %" PRIu64 " ready events, %" PRIu64
           " reads, %" PRIu64 " bytes, %" PRIu64 " records\n",
-          lm_backend_name(backend), st->seconds, st->wakeups, st->events, st->reads, st->bytes,
-          st->records);
+          lm_backend_name(backend), st->seconds, st->cpu_seconds, st->wakeups, st->events,
+          st->reads, st->bytes, st->records);
 }
 
 int main(int argc, char** argv) {
