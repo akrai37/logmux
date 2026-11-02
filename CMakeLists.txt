@@ -34,6 +34,17 @@ if(LOGMUX_WERROR)
   target_compile_options(logmux_warnings INTERFACE -Werror)
 endif()
 
+add_library(logmux_core
+  src/collector.c
+  src/poller.c)
+target_include_directories(logmux_core PUBLIC include)
+target_link_libraries(logmux_core PRIVATE logmux_warnings)
+
 add_executable(logmux src/main.c)
-target_link_libraries(logmux PRIVATE logmux_warnings)
+target_link_libraries(logmux PRIVATE logmux_core logmux_warnings)
 target_compile_definitions(logmux PRIVATE LOGMUX_VERSION="${PROJECT_VERSION}")
+
+if(LOGMUX_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
