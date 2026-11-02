@@ -13,6 +13,7 @@
 #include "logmux/collector.h"
 
 typedef struct {
+  double seconds;  // timestamp: seconds since logmux started
   char name[64];
   char stream[4];  // "out", "err" or "sys"
   char mark;       // ':', '+' or '~'
@@ -62,6 +63,7 @@ static inline log_view log_parse(const char* raw, size_t len) {
       p = nl + 1;
       continue;
     }
+    r.seconds = strtod(p, NULL);
     memcpy(r.name, sp1 + 1, (size_t)(sp2 - sp1 - 1));
     memcpy(r.stream, sp2 + 1, 3);
     r.mark = sp2[4];

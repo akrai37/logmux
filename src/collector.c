@@ -12,6 +12,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "logmux/testing.h"
+
 #define READ_CHUNK 65536
 #define DEFAULT_MAX_LINE 4096
 #define MAX_MAX_LINE (1u << 20)
@@ -19,6 +21,9 @@
 #define MAX_EVENTS 256
 
 static const char* const kStreamNames[2] = {"out", "err"};
+
+// An lm_broken value while lm_run_broken is running, -1 otherwise.
+static int g_broken = -1;
 
 typedef struct child child;
 
@@ -104,10 +109,10 @@ static uint64_t now_ns(void) {
   return (uint64_t)ts.tv_sec * 1000000000u + (uint64_t)ts.tv_nsec;
 }
 
-static void flush(writer* w) {
+static void write_all(writer* w, const char* data, size_t len) {
   size_t off = 0;
-  while (off < w->len && !w->failed) {
-    const ssize_t n = write(w->fd, w->buf + off, w->len - off);
+  while (off < len && !w->failed) {
+    const ssize_t n = write(w->fd, data + off, len - off);
     if (n < 0) {
       if (errno == EINTR) {
         continue;
@@ -117,6 +122,10 @@ static void flush(writer* w) {
     }
     off += (size_t)n;
   }
+}
+
+static void flush(writer* w) {
+  write_all(w, w->buf, w->len);
   w->len = 0;
 }
 
@@ -133,6 +142,15 @@ static void emit(writer* w, const char* name, const char* stream_name, char mark
   const size_t need = head_len + text_len + 1;
   if (w->len + need > w->cap) {
     flush(w);
+  }
+  if (need > w->cap) {
+    // Larger than the whole buffer: written straight through, still in order
+    // and still whole relative to every other record.
+    write_all(w, head, head_len);
+    write_all(w, text, text_len);
+    write_all(w, "\n", 1);
+    ++w->records;
+    return;
   }
   memcpy(w->buf + w->len, head, head_len);
   memcpy(w->buf + w->len + head_len, text, text_len);
@@ -255,19 +273,37 @@ static void child_exec(const lm_child_spec* spec, int devnull, int out_w, int er
   _exit(127);
 }
 
-static bool spawn(child* c, int devnull) {
+typedef struct {
   int out[2];
   int err[2];
-  if (cloexec_pipe(out) != 0) {
-    return false;
+} child_pipes;
+
+static void close_pipes(child_pipes* p) {
+  for (int i = 0; i < 2; ++i) {
+    if (p->out[i] >= 0) {
+      close(p->out[i]);
+    }
+    if (p->err[i] >= 0) {
+      close(p->err[i]);
+    }
   }
-  if (cloexec_pipe(err) != 0) {
-    close(out[0]);
-    close(out[1]);
-    return false;
+}
+
+static int open_pipes(child_pipes* p, bool cloexec) {
+  *p = (child_pipes){{-1, -1}, {-1, -1}};
+  const int ok_out = cloexec ? cloexec_pipe(p->out) : pipe(p->out);
+  const int ok_err = ok_out == 0 ? (cloexec ? cloexec_pipe(p->err) : pipe(p->err)) : -1;
+  if (ok_out != 0 || ok_err != 0) {
+    close_pipes(p);
+    return -1;
   }
-  // Signals stay blocked across fork so a handler can never run in the
-  // child before exec (it would write to logmux's wake pipe).
+  return 0;
+}
+
+// Forks and execs one child on the write ends of `p`. Signals stay blocked
+// across fork so a handler can never run in the child before exec (it
+// would write to logmux's wake pipe).
+static pid_t fork_child(const lm_child_spec* spec, int devnull, const child_pipes* p) {
   sigset_t block;
   sigset_t previous;
   sigemptyset(&block);
@@ -277,24 +313,69 @@ static bool spawn(child* c, int devnull) {
   sigprocmask(SIG_BLOCK, &block, &previous);
   const pid_t pid = fork();
   if (pid == 0) {
-    child_exec(c->spec, devnull, out[1], err[1]);
+    child_exec(spec, devnull, p->out[1], p->err[1]);
   }
   sigprocmask(SIG_SETMASK, &previous, NULL);
-  close(out[1]);
-  close(err[1]);
-  if (pid < 0) {
-    close(out[0]);
-    close(err[0]);
-    return false;
-  }
+  return pid;
+}
+
+// Parent side after a successful fork: the child's own process group, and
+// non-blocking read ends.
+static void adopt(child* c, pid_t pid, const child_pipes* p) {
   setpgid(pid, pid);  // also from the parent, so the group exists before any kill
-  set_flags(out[0], 0, O_NONBLOCK);
-  set_flags(err[0], 0, O_NONBLOCK);
+  if (g_broken != LM_BROKEN_SEQUENTIAL_READS) {
+    set_flags(p->out[0], 0, O_NONBLOCK);
+    set_flags(p->err[0], 0, O_NONBLOCK);
+  }
   c->result->pid = pid;
   c->result->spawned = true;
-  c->streams[LM_STDOUT].fd = out[0];
-  c->streams[LM_STDERR].fd = err[0];
+  c->streams[LM_STDOUT].fd = p->out[0];
+  c->streams[LM_STDERR].fd = p->err[0];
+}
+
+// Each child's pipes are created just before its fork, close-on-exec, and
+// the parent closes the write ends right after. Either measure alone keeps
+// siblings from holding each other's write ends; together they also cover
+// descriptors opened between spawns.
+static bool spawn(child* c, int devnull) {
+  child_pipes p;
+  if (open_pipes(&p, true) != 0) {
+    return false;
+  }
+  const pid_t pid = fork_child(c->spec, devnull, &p);
+  close(p.out[1]);
+  close(p.err[1]);
+  if (pid < 0) {
+    close(p.out[0]);
+    close(p.err[0]);
+    return false;
+  }
+  adopt(c, pid, &p);
   return true;
+}
+
+// LM_BROKEN_NAIVE_PIPES: every pipe first, inheritable, then every fork.
+static void spawn_all_naively(child* children, size_t n, int devnull) {
+  child_pipes* pipes = calloc(n == 0 ? 1 : n, sizeof *pipes);
+  pid_t* pids = calloc(n == 0 ? 1 : n, sizeof *pids);
+  for (size_t i = 0; i < n; ++i) {
+    pipes[i] = (child_pipes){{-1, -1}, {-1, -1}};
+    open_pipes(&pipes[i], false);
+  }
+  for (size_t i = 0; i < n; ++i) {
+    pids[i] = pipes[i].out[0] >= 0 ? fork_child(children[i].spec, devnull, &pipes[i]) : -1;
+  }
+  for (size_t i = 0; i < n; ++i) {
+    if (pipes[i].out[1] >= 0) {
+      close(pipes[i].out[1]);
+      close(pipes[i].err[1]);
+    }
+    if (pids[i] > 0) {
+      adopt(&children[i], pids[i], &pipes[i]);
+    }
+  }
+  free(pids);
+  free(pipes);
 }
 
 static void signal_group(const child* c, int sig) {
@@ -454,7 +535,13 @@ int lm_run(const lm_config* cfg, const lm_child_spec* specs, size_t n, lm_child_
       c->streams[k] = (stream){.owner = c, .kind = k, .fd = -1};
     }
     c->last_output_ns = now_ns();
-    if (!spawn(c, devnull)) {
+  }
+  if (g_broken == LM_BROKEN_NAIVE_PIPES) {
+    spawn_all_naively(children, n, devnull);
+  }
+  for (size_t i = 0; i < n; ++i) {
+    child* c = &children[i];
+    if (g_broken == LM_BROKEN_NAIVE_PIPES ? !c->result->spawned : !spawn(c, devnull)) {
       note(&w, c, "could not start: %s", strerror(errno));
       continue;
     }
@@ -470,6 +557,36 @@ int lm_run(const lm_config* cfg, const lm_child_spec* specs, size_t n, lm_child_
         continue;
       }
       ++open_streams;
+    }
+  }
+
+  if (g_broken == LM_BROKEN_SEQUENTIAL_READS) {
+    // Each stream to end-of-file in turn, blocking.
+    for (size_t i = 0; i < n; ++i) {
+      for (int k = 0; k < 2; ++k) {
+        stream* s = &children[i].streams[k];
+        while (s->fd >= 0) {
+          const ssize_t got = read(s->fd, s->buf + s->len, max_line + READ_CHUNK - s->len);
+          if (got > 0) {
+            s->len += (size_t)got;
+            frame_lines(&w, s, max_line);
+            continue;
+          }
+          if (got < 0 && errno == EINTR) {
+            continue;
+          }
+          flush_fragment(&w, s, max_line);
+          close_stream(poller, s);
+          --open_streams;
+        }
+      }
+    }
+    while (living > 0) {
+      living -= reap(&w, children, n);
+      if (living > 0) {
+        const struct timespec ms = {0, 1000000};  // usleep is not in POSIX.1-2008
+        nanosleep(&ms, NULL);
+      }
     }
   }
 
@@ -511,7 +628,14 @@ int lm_run(const lm_config* cfg, const lm_child_spec* specs, size_t n, lm_child_
         s->owner->result->bytes[s->kind] += (uint64_t)got;
         s->owner->last_output_ns = now_ns();
         s->len += (size_t)got;
-        frame_lines(&w, s, max_line);
+        if (g_broken == LM_BROKEN_NO_REASSEMBLY) {
+          // Whatever this read returned becomes a record, line or not.
+          const size_t len = s->buf[s->len - 1] == '\n' ? s->len - 1 : s->len;
+          record(&w, s, ':', s->buf, len);
+          s->len = 0;
+        } else {
+          frame_lines(&w, s, max_line);
+        }
       } else if (got == 0 || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)) {
         flush_fragment(&w, s, max_line);
         close_stream(poller, s);
@@ -549,5 +673,13 @@ out:
   if (results == NULL) {
     free(res);
   }
+  return rc;
+}
+
+int lm_run_broken(lm_broken kind, const lm_config* config, const lm_child_spec* children, size_t n,
+                  lm_child_result* results, lm_stats* stats) {
+  g_broken = (int)kind;
+  const int rc = lm_run(config, children, n, results, stats);
+  g_broken = -1;
   return rc;
 }

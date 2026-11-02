@@ -44,6 +44,11 @@ add_executable(logmux src/main.c)
 target_link_libraries(logmux PRIVATE logmux_core logmux_warnings)
 target_compile_definitions(logmux PRIVATE LOGMUX_VERSION="${PROJECT_VERSION}")
 
+# Test child that writes predictable lines in hostile ways.
+add_executable(logmux-child tools/child.c)
+target_include_directories(logmux-child PRIVATE tools)
+target_link_libraries(logmux-child PRIVATE logmux_warnings)
+
 if(LOGMUX_BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
