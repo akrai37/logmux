@@ -157,7 +157,11 @@ int main(int argc, char** argv) {
       fprintf(stderr, "logmux-bench: pipe: %s\n", strerror(errno));
       return 2;
     }
-    src[i] = (source){fds[0], i < o.idle ? 0 : i < o.idle + o.busy ? 1 : 2};
+    // Busy pipes and the pinger are created first: on Linux, once a user's
+    // pipes hold pipe-user-pages-soft pages (64 MiB by default), new pipes
+    // get 8 KiB buffers instead of 64 KiB, which would throttle the busy
+    // pipes whenever many idle ones exist.
+    src[i] = (source){fds[0], i < o.busy ? 1 : i == o.busy ? 2 : 0};
     write_ends[i] = fds[1];
     if (lm_poller_add(poller, fds[0], &src[i]) != 0) {
       supported = false;  // select, past FD_SETSIZE
@@ -182,11 +186,11 @@ int main(int argc, char** argv) {
   const long long per_writer = (long long)(o.mb * 1048576.0 / (double)o.busy);
   pid_t* writers = calloc((size_t)o.busy, sizeof *writers);
   for (long k = 0; k < o.busy; ++k) {
-    writers[k] = start_writer(write_ends[o.idle + k], per_writer);
-    close(write_ends[o.idle + k]);  // the reader sees EOF when the writer exits
-    write_ends[o.idle + k] = -1;
+    writers[k] = start_writer(write_ends[k], per_writer);
+    close(write_ends[k]);  // the reader sees EOF when the writer exits
+    write_ends[k] = -1;
   }
-  const pid_t pinger = start_pinger(write_ends[total - 1], o.ping_us);
+  const pid_t pinger = start_pinger(write_ends[o.busy], o.ping_us);
 
   sl_histogram latency;
   sl_hist_clear(&latency);

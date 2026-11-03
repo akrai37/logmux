@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 396" width="760" height="396" role="img" aria-label="Cost of watching idle pipes (linux-docker)">
+<style>text{font-family:system-ui, -apple-system, "Segoe UI", sans-serif}.surface{fill:#fcfcfb}.ink{fill:#0b0b0b}.ink2{fill:#52514e}.muted{fill:#898781}.grid{fill:#e1e0d9}.axis{fill:#c3c2b7}.s1{fill:#2a78d6}.s2{fill:#eb6834}.s3{fill:#1baf7a}.ls1{stroke:#2a78d6}.ls2{stroke:#eb6834}.ls3{stroke:#1baf7a}.gridline{stroke:#e1e0d9}.baseline{stroke:#c3c2b7}.ring{stroke:#fcfcfb}@media (prefers-color-scheme: dark){.surface{fill:#1a1a19}.ink{fill:#f0efec}.ink2{fill:#c3c2b7}.muted{fill:#898781}.grid{fill:#2c2c2a}.axis{fill:#383835}.s1{fill:#3987e5}.s2{fill:#d95926}.s3{fill:#199e70}.ls1{stroke:#3987e5}.ls2{stroke:#d95926}.ls3{stroke:#199e70}.gridline{stroke:#2c2c2a}.baseline{stroke:#383835}.ring{stroke:#1a1a19}}</style>
+<rect class="surface" width="760" height="396" rx="8"/>
+<text class="ink" x="16" y="26" font-size="15" font-weight="600">Cost of watching idle pipes (linux-docker)</text>
+<text class="ink2" x="16" y="45" font-size="12">Reader CPU per wakeup, 4 busy pipes plus N idle ones, log scale</text>
+<rect class="s2" x="16" y="56" width="10" height="10" rx="2"/>
+<text class="ink2" x="31" y="65" font-size="12">select</text>
+<rect class="s3" x="97" y="56" width="10" height="10" rx="2"/>
+<text class="ink2" x="112" y="65" font-size="12">poll</text>
+<rect class="s1" x="164" y="56" width="10" height="10" rx="2"/>
+<text class="ink2" x="179" y="65" font-size="12">epoll</text>
+<line class="gridline" x1="72" x2="610" y1="340.0" y2="340.0" stroke-width="1"/>
+<text class="muted" x="64" y="344.0" font-size="11" text-anchor="end">1 µs</text>
+<line class="gridline" x1="72" x2="610" y1="260.0" y2="260.0" stroke-width="1"/>
+<text class="muted" x="64" y="264.0" font-size="11" text-anchor="end">10 µs</text>
+<line class="gridline" x1="72" x2="610" y1="180.0" y2="180.0" stroke-width="1"/>
+<text class="muted" x="64" y="184.0" font-size="11" text-anchor="end">100 µs</text>
+<line class="gridline" x1="72" x2="610" y1="100.0" y2="100.0" stroke-width="1"/>
+<text class="muted" x="64" y="104.0" font-size="11" text-anchor="end">1000 µs</text>
+<text class="muted" x="72.0" y="358" font-size="11" text-anchor="middle">0</text>
+<text class="muted" x="161.7" y="358" font-size="11" text-anchor="middle">64</text>
+<text class="muted" x="251.3" y="358" font-size="11" text-anchor="middle">256</text>
+<text class="muted" x="341.0" y="358" font-size="11" text-anchor="middle">500</text>
+<text class="muted" x="430.7" y="358" font-size="11" text-anchor="middle">1000</text>
+<text class="muted" x="520.3" y="358" font-size="11" text-anchor="middle">2000</text>
+<text class="muted" x="610.0" y="358" font-size="11" text-anchor="middle">4000</text>
+<text class="muted" x="341.0" y="382" font-size="11" text-anchor="middle">idle pipes watched (steps not to scale)</text>
+<text class="muted" x="16" y="84" font-size="11">CPU per wakeup</text>
+<line class="baseline" x1="72" x2="610" y1="340" y2="340" stroke-width="1"/>
+<path class="ls2" d="M72.0,259.7 L161.7,247.3 L251.3,229.5 L341.0,217.7" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="s2 ring" cx="72.0" cy="259.7" r="4" stroke-width="2"><title>select, 0 idle: 10.098 µs</title></circle>
+<circle class="s2 ring" cx="161.7" cy="247.3" r="4" stroke-width="2"><title>select, 64 idle: 14.403 µs</title></circle>
+<circle class="s2 ring" cx="251.3" cy="229.5" r="4" stroke-width="2"><title>select, 256 idle: 24.062 µs</title></circle>
+<circle class="s2 ring" cx="341.0" cy="217.7" r="4" stroke-width="2"><title>select, 500 idle: 33.764 µs</title></circle>
+<text class="ink2" x="351.0" y="221.7" font-size="11">select (stops at 500: FD_SETSIZE)</text>
+<path class="ls3" d="M72.0,257.7 L161.7,246.5 L251.3,231.0 L341.0,218.8 L430.7,204.5 L520.3,186.2 L610.0,163.3" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="s3 ring" cx="72.0" cy="257.7" r="4" stroke-width="2"><title>poll, 0 idle: 10.687 µs</title></circle>
+<circle class="s3 ring" cx="161.7" cy="246.5" r="4" stroke-width="2"><title>poll, 64 idle: 14.744 µs</title></circle>
+<circle class="s3 ring" cx="251.3" cy="231.0" r="4" stroke-width="2"><title>poll, 256 idle: 23.066 µs</title></circle>
+<circle class="s3 ring" cx="341.0" cy="218.8" r="4" stroke-width="2"><title>poll, 500 idle: 32.7 µs</title></circle>
+<circle class="s3 ring" cx="430.7" cy="204.5" r="4" stroke-width="2"><title>poll, 1000 idle: 49.391 µs</title></circle>
+<circle class="s3 ring" cx="520.3" cy="186.2" r="4" stroke-width="2"><title>poll, 2000 idle: 83.64 µs</title></circle>
+<circle class="s3 ring" cx="610.0" cy="163.3" r="4" stroke-width="2"><title>poll, 4000 idle: 161.757 µs</title></circle>
+<text class="ink2" x="620.0" y="167.3" font-size="11">poll</text>
+<path class="ls1" d="M72.0,260.2 L161.7,255.0 L251.3,257.6 L341.0,256.8 L430.7,257.3 L520.3,255.6 L610.0,256.3" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle class="s1 ring" cx="72.0" cy="260.2" r="4" stroke-width="2"><title>epoll, 0 idle: 9.94 µs</title></circle>
+<circle class="s1 ring" cx="161.7" cy="255.0" r="4" stroke-width="2"><title>epoll, 64 idle: 11.532 µs</title></circle>
+<circle class="s1 ring" cx="251.3" cy="257.6" r="4" stroke-width="2"><title>epoll, 256 idle: 10.729 µs</title></circle>
+<circle class="s1 ring" cx="341.0" cy="256.8" r="4" stroke-width="2"><title>epoll, 500 idle: 10.977 µs</title></circle>
+<circle class="s1 ring" cx="430.7" cy="257.3" r="4" stroke-width="2"><title>epoll, 1000 idle: 10.797 µs</title></circle>
+<circle class="s1 ring" cx="520.3" cy="255.6" r="4" stroke-width="2"><title>epoll, 2000 idle: 11.361 µs</title></circle>
+<circle class="s1 ring" cx="610.0" cy="256.3" r="4" stroke-width="2"><title>epoll, 4000 idle: 11.108 µs</title></circle>
+<text class="ink2" x="620.0" y="260.3" font-size="11">epoll</text>
+</svg>
