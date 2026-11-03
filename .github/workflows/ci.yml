@@ -40,3 +40,13 @@ jobs:
           if [ -f build/CTestTestfile.cmake ]; then
             ctest --test-dir build --output-on-failure -j 4
           fi
+
+      # Surface failing checks as annotations, which are visible on the run
+      # page (and through the API) without opening the full log.
+      - name: Report failures
+        if: failure()
+        run: |
+          log=build/Testing/Temporary/LastTest.log
+          [ -f "$log" ] || exit 0
+          grep -E 'check failed|Failed|ERROR: (Address|Leak)Sanitizer|runtime error|seed [0-9]+:|  [A-Za-z0-9_-]+ (out|err):' "$log" \
+            | head -25 | while IFS= read -r line; do echo "::error::$line"; done
