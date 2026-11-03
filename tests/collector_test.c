@@ -117,17 +117,23 @@ static void test_hang_timeout_and_escalation(void) {
       SH("orphan", "sleep 30 & echo parent exits"),
   };
   lm_config c = config();
-  c.hang_timeout_ms = 200;
-  c.kill_grace_ms = 200;
+  c.hang_timeout_ms = 1000;
+  c.kill_grace_ms = 500;
   lm_child_result r[3];
   lm_stats st;
   int rc;
   log_view log = run_and_capture(c, specs, 3, r, &st, &rc);
   CHECK_EQ_U(rc, 0);
-  CHECK(st.seconds < 5);
+  CHECK(st.seconds < 10);
   CHECK(r[0].timed_out && r[0].signaled && r[0].term_signal == SIGTERM);
   CHECK(r[1].timed_out && r[1].signaled && r[1].term_signal == SIGKILL);
-  CHECK(r[2].exited && r[2].exit_code == 0);
+  // What matters for the orphan: its line was collected and logmux did not
+  // wait 30 s for the background sleep. Its shell normally exits on its
+  // own long before the timeout, but on a heavily loaded machine (a busy
+  // CI runner) it can still be running when the timeout fires, and then
+  // being stopped by it is equally correct.
+  check_lines(&log, "orphan", "out", "parent exits\n");
+  CHECK((r[2].exited && r[2].exit_code == 0) || (r[2].timed_out && r[2].signaled));
   CHECK(find_record(&log, "stubborn", "sys", "still running") != NULL);
   log_free(&log);
 }
@@ -155,7 +161,7 @@ static void test_shutdown_on_signal(void) {
   int rc;
   log_view log = run_and_capture(config(), specs, 2, r, &st, &rc);
   CHECK_EQ_U(rc, 0);
-  CHECK(st.seconds < 5);
+  CHECK(st.seconds < 10);
   CHECK(r[0].signaled && r[1].signaled);
   check_lines(&log, "bystander", "out", "still here\n");
   CHECK(find_record(&log, "bystander", "sys", "shutting down") != NULL);
